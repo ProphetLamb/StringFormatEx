@@ -23,7 +23,7 @@ namespace StringFormatEx
             {
                 char ch = unescaped[index];
                 if (ch < tableLen && (escapeTable[ch] & escapeLevel) != 0)
-                    return InternalEscape(unescaped, index, escapePrefix, escapePostfix, escapeTable, escapeLevel);
+                    return InternalEscape(unescaped.AsSpan(), index, escapePrefix, escapePostfix, escapeTable, escapeLevel);
             }
 
             return unescaped;
@@ -31,7 +31,7 @@ namespace StringFormatEx
 
         private static string InternalEscape(ReadOnlySpan<char> unescaped, int startingIndex, ReadOnlySpan<char> escapePrefix, ReadOnlySpan<char> escapePostfix, ReadOnlySpan<byte> escapeTable, byte escapeLevel)
         {
-            ValueStringBuilder sb = new(stackalloc char[unescaped.Length + 8]);
+            ValueStringBuilder sb = new(stackalloc char[Math.Min(4096, unescaped.Length + 8)]);
             sb.Append(unescaped.Slice(0, startingIndex));
             
             int tableLen = escapeTable.Length;
@@ -42,7 +42,9 @@ namespace StringFormatEx
                 sb.Append(unescaped[index]);
                 sb.Append(escapePostfix);
                 if (index == unescaped.Length - 1)
+                {
                     break;
+                }
                 int pos = index;
                 char ch;
                 do

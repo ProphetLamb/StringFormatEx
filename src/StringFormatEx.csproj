@@ -1,15 +1,28 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
+    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
+    <LangVersion>9</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <PackageVersion>0.0.1</PackageVersion>
-    <Title>StringFormatEx</Title>
-    <Authors>ProphetLamb</Authors>
-    <Copyright>Copyright (c) 2021 ProphetLamb</Copyright>
-    <LangVersion>9</LangVersion>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <Title>StringFormatEx</Title>
+    <Authors>ProphetLamb</Authors>
+    <Description>Some string formatting stuff.</Description>
+    <Copyright>Copyright (c) 2021 Prophet Lamb</Copyright>
+    <PackageProjectUrl>https://github.com/ProphetLamb/StringFormatEx</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/ProphetLamb/StringFormatEx.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackageTags>C#</PackageTags>
+    <Version>0.0.3</Version>
+  </PropertyGroup>
+  
+  <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
+    <PackageReference Include="System.Memory" Version="4.5.4" />
+  </ItemGroup>
 </Project>

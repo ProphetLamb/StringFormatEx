@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+#if NETSTANDARD2_1
 using System.Diagnostics.CodeAnalysis;
+#endif
 
 namespace StringFormatEx
 {
@@ -15,7 +17,7 @@ namespace StringFormatEx
         /// <exception cref="FormatException">Incomplete format or argument in format string for which no replacement is provided if <paramref name="doNotThrowOnMissingArgument"/> is <see langword="false"/>.</exception>
         public static string Format(string format, IFormatProvider? provider, ReadOnlySpan<FormattingArgument> arguments, bool doNotThrowOnMissingArgument)
         {
-            ValueStringBuilder output = new(stackalloc char[256]);
+            ValueStringBuilder output = new(stackalloc char[Math.Min(4096, format.Length)]);
             ValueStringBuilder symbol = new(stackalloc char[32]);
             var index = 0;
             int length = format.Length;
@@ -109,7 +111,7 @@ namespace StringFormatEx
         /// <exception cref="FormatException">Incomplete format or argument in format string for which no replacement is provided if <paramref name="doNotThrowOnMissingArgument"/> is <see langword="false"/>.</exception>
         public static string Format<T>(string format, IFormatProvider? provider, IReadOnlyDictionary<string, T> arguments, bool doNotThrowOnMissingArgument)
         {
-            ValueStringBuilder output = new(stackalloc char[256]);
+            ValueStringBuilder output = new(stackalloc char[Math.Min(4096, format.Length)]);
             ValueStringBuilder symbol = new(stackalloc char[32]);
             var index = 0;
             int length = format.Length;
@@ -152,15 +154,23 @@ namespace StringFormatEx
                     }
 
                     if (inHole)
+                    {
                         symbol.Append(current);
+                    }
                     else
+                    {
                         output.Append(current);
+                    }
                 }
 
                 if (index == length)
+                {
                     break;
+                }
                 if (!inHole)
+                {
                     ThrowFormatError();
+                }
 
                 // Find named argument in arguments
                 string syName = symbol.ToString();
@@ -190,13 +200,17 @@ namespace StringFormatEx
             return output.ToString();
         }
 
+#if NETSTANDARD2_1
         [DoesNotReturn]
+#endif
         private static void ThrowFormatError()
         {
             throw new FormatException("Invalid string format.");
         }
 
+#if NETSTANDARD2_1
         [DoesNotReturn]
+#endif
         private static void ThrowFormatArgumentNotFound(string argumentName)
         {
             throw new FormatException($"Invalid string format the no argument with the symbol-name \"{argumentName}\" in the argument array.");
@@ -215,9 +229,10 @@ namespace StringFormatEx
 
         public readonly object? Value;
 
-        public static implicit operator FormattingArgument((string, object?) tuple)
+        public void Deconstruct(out string symbol, out object? value)
         {
-            return new(tuple.Item1, tuple.Item2);
+            symbol = Symbol;
+            value = Value;
         }
     }
 

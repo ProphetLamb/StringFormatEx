@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+#if NETSTANDARD2_1
 using System.Diagnostics.CodeAnalysis;
-using System.Threading;
+#endif
+using StringFormatEx.Helpers;
 
 namespace StringFormatEx
 {
@@ -10,7 +11,8 @@ namespace StringFormatEx
     {
         private const byte A = 255;
         private const byte B = 253;
-        private static readonly ThreadLocal<FormattingArgument[]> s_arguments = new(() => new FormattingArgument[2]);
+        [ThreadStatic]
+        private static FormattingArgument[]? s_arguments;
 
         public static ReadOnlySpan<byte> CEscapeTable => new byte[] {
             B, 0, 0, 0, 0, 0, 0, 0, B, B, B, B, 0, B, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -21,6 +23,23 @@ namespace StringFormatEx
          // '  a  b  c  d  e  f  g  h  i  j  k  l  m  n  o  p  q  r  s  t  u  v  w  x  y  z  {  |  }  ~
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         };
+
+        private static ReadOnlySpan<FormattingArgument> GetArgumentSpan(
+            int count,
+            FormattingArgument arg0 = default,
+            FormattingArgument arg1 = default,
+            FormattingArgument arg2 = default,
+            FormattingArgument arg3 = default)
+        {
+            s_arguments ??= new FormattingArgument[4];
+
+            s_arguments[0] = arg0;
+            s_arguments[1] = arg1;
+            s_arguments[2] = arg2;
+            s_arguments[3] = arg3;
+
+            return s_arguments.AsSpan(0, count).InsertionSort(FormattingArgumentSymbolComparer.Default);
+        }
 
         /// <summary>
         ///     Replaces the format items in a string with the replacement objects.
@@ -49,6 +68,39 @@ namespace StringFormatEx
         public static string Format(this string format, object? arg0, object? arg1)
         {
             return String.Format(format, arg0, arg1);
+        }
+
+        /// <summary>
+        ///     Replaces the format items in a string with the replacement objects.
+        /// </summary>
+        /// <param name="format">A composite format <see langword="string" />.</param>
+        /// <param name="arg0">The first object to format.</param>
+        /// <param name="arg1">The second object to format.</param>>
+        /// <param name="arg2">The third object to format.</param>
+        /// <returns>
+        ///     A copy of <paramref name="format" /> in which the format items have been replaced by their respective string
+        ///     representation.
+        /// </returns>
+        public static string Format(this string format, object? arg0, object? arg1, object? arg2)
+        {
+            return String.Format(format, arg0, arg1, arg2);
+        }
+
+        /// <summary>
+        ///     Replaces the format items in a string with the replacement objects.
+        /// </summary>
+        /// <param name="format">A composite format <see langword="string" />.</param>
+        /// <param name="arg0">The first object to format.</param>
+        /// <param name="arg1">The second object to format.</param>
+        /// <param name="arg2">The third object to format.</param>
+        /// <param name="arg3">The forth object to format.</param>
+        /// <returns>
+        ///     A copy of <paramref name="format" /> in which the format items have been replaced by their respective string
+        ///     representation.
+        /// </returns>
+        public static string Format(this string format, object? arg0, object? arg1, object? arg2, object? arg3)
+        {
+            return String.Format(format, arg0, arg1, arg2, arg3);
         }
 
         /// <summary>
@@ -106,9 +158,9 @@ namespace StringFormatEx
         ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
         ///     representation.
         /// </returns>
-        public static string FormatAll(this string format, FormattingArgument arg0)
+        public static string FormatAll(this string format, in FormattingArgument arg0)
         {
-            return FormatAll(format, null, arg0);
+            return FormattingEx.Format(format, null, GetArgumentSpan(1, arg0), false);
         }
 
         /// <summary>
@@ -121,9 +173,42 @@ namespace StringFormatEx
         ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
         ///     representation.
         /// </returns>
-        public static string FormatAll(this string format, FormattingArgument arg0, FormattingArgument arg1)
+        public static string FormatAll(this string format, in FormattingArgument arg0, in FormattingArgument arg1)
         {
-            return FormatAll(format, null, arg0, arg1);
+            return FormattingEx.Format(format, null, GetArgumentSpan(2, arg0, arg1), false);
+        }
+
+        /// <summary>
+        ///     Replaces the format symbols in a string with the replacement objects.
+        /// </summary>
+        /// <param name="format">A composite format <see langword="string" />.</param>
+        /// <param name="arg0">The first argument.</param>
+        /// <param name="arg1">The second argument.</param>
+        /// <param name="arg2">The third argument.</param>
+        /// <returns>
+        ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
+        ///     representation.
+        /// </returns>
+        public static string FormatAll(this string format, in FormattingArgument arg0, in FormattingArgument arg1, in FormattingArgument arg2)
+        {
+            return FormattingEx.Format(format, null, GetArgumentSpan(3, arg0, arg1, arg2), false);
+        }
+
+        /// <summary>
+        ///     Replaces the format symbols in a string with the replacement objects.
+        /// </summary>
+        /// <param name="format">A composite format <see langword="string" />.</param>
+        /// <param name="arg0">The first argument.</param>
+        /// <param name="arg1">The second argument.</param>
+        /// <param name="arg2">The third argument.</param>
+        /// <param name="arg3">The forth argument.</param>
+        /// <returns>
+        ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
+        ///     representation.
+        /// </returns>
+        public static string FormatAll(this string format, in FormattingArgument arg0, in FormattingArgument arg1, in FormattingArgument arg2, in FormattingArgument arg3)
+        {
+            return FormattingEx.Format(format, null, GetArgumentSpan(4, arg0, arg1, arg2, arg3), false);
         }
 
         /// <summary>
@@ -171,11 +256,9 @@ namespace StringFormatEx
         ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
         ///     representation.
         /// </returns>
-        public static string FormatAll(this string format, IFormatProvider? provider, FormattingArgument arg0)
+        public static string FormatAll(this string format, IFormatProvider? provider, in FormattingArgument arg0)
         {
-            var args = s_arguments.Value!;
-            args[0] = arg0;
-            return FormattingEx.Format(format, provider, args.AsSpan(0, 1), false);
+            return FormattingEx.Format(format, provider, GetArgumentSpan(0, arg0), false);
         }
 
         /// <summary>
@@ -189,21 +272,44 @@ namespace StringFormatEx
         ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
         ///     representation.
         /// </returns>
-        public static string FormatAll(this string format, IFormatProvider? provider, FormattingArgument arg0, FormattingArgument arg1)
+        public static string FormatAll(this string format, IFormatProvider? provider, in FormattingArgument arg0, in FormattingArgument arg1)
         {
-            var args = s_arguments.Value!;
-            if (FormattingArgumentSymbolComparer.Default.Compare(arg0, arg1) > 0)
-            {
-                args[0] = arg1;
-                args[1] = arg0;
-            }
-            else
-            {
-                args[0] = arg0;
-                args[1] = arg1;
-            }
-
-            return FormattingEx.Format(format, provider, args, false);
+            return FormattingEx.Format(format, provider, GetArgumentSpan(2, arg0, arg1), false);
+        }
+        
+        /// <summary>
+        ///     Replaces the format symbols in a string with the replacement objects.
+        /// </summary>
+        /// <param name="format">A composite format <see langword="string" />.</param>
+        /// <param name="provider">A object that supplies culture-specific formatting information.</param>
+        /// <param name="arg0">The first argument.</param>
+        /// <param name="arg1">The second argument.</param>
+        /// <param name="arg2">The third argument.</param>
+        /// <returns>
+        ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
+        ///     representation.
+        /// </returns>
+        public static string FormatAll(this string format, IFormatProvider? provider, in FormattingArgument arg0, in FormattingArgument arg1, in FormattingArgument arg2)
+        {
+            return FormattingEx.Format(format, provider, GetArgumentSpan(3, arg0, arg1, arg2), false);
+        }
+        
+        /// <summary>
+        ///     Replaces the format symbols in a string with the replacement objects.
+        /// </summary>
+        /// <param name="format">A composite format <see langword="string" />.</param>
+        /// <param name="provider">A object that supplies culture-specific formatting information.</param>
+        /// <param name="arg0">The first argument.</param>
+        /// <param name="arg1">The second argument.</param>
+        /// <param name="arg2">The third argument.</param>
+        /// <param name="arg3">The forth argument.</param>
+        /// <returns>
+        ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
+        ///     representation.
+        /// </returns>
+        public static string FormatAll(this string format, IFormatProvider? provider, in FormattingArgument arg0, in FormattingArgument arg1, in FormattingArgument arg2, in FormattingArgument arg3)
+        {
+            return FormattingEx.Format(format, provider, GetArgumentSpan(4, arg0, arg1, arg2, arg3), false);
         }
 
         /// <summary>
@@ -247,9 +353,9 @@ namespace StringFormatEx
         ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
         ///     representation.
         /// </returns>
-        public static string FormatAny(this string format, FormattingArgument arg0)
+        public static string FormatAny(this string format, in FormattingArgument arg0)
         {
-            return FormatAny(format, null, arg0);
+            return FormattingEx.Format(format, null, GetArgumentSpan(1, arg0), true);
         }
 
         /// <summary>
@@ -262,9 +368,42 @@ namespace StringFormatEx
         ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
         ///     representation.
         /// </returns>
-        public static string FormatAny(this string format, FormattingArgument arg0, FormattingArgument arg1)
+        public static string FormatAny(this string format, in FormattingArgument arg0, in FormattingArgument arg1)
         {
-            return FormatAny(format, null, arg0, arg1);
+            return FormattingEx.Format(format, null, GetArgumentSpan(2, arg0, arg1), true);
+        }
+
+        /// <summary>
+        ///     Replaces the format symbols in a string with the replacement objects.
+        /// </summary>
+        /// <param name="format">A composite format <see langword="string" />.</param>
+        /// <param name="arg0">The first argument.</param>
+        /// <param name="arg1">The second argument.</param>
+        /// <param name="arg2">The third argument.</param>
+        /// <returns>
+        ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
+        ///     representation.
+        /// </returns>
+        public static string FormatAny(this string format, in FormattingArgument arg0, in FormattingArgument arg1, in FormattingArgument arg2)
+        {
+            return FormattingEx.Format(format, null, GetArgumentSpan(3, arg0, arg1, arg2), true);
+        }
+
+        /// <summary>
+        ///     Replaces the format symbols in a string with the replacement objects.
+        /// </summary>
+        /// <param name="format">A composite format <see langword="string" />.</param>
+        /// <param name="arg0">The first argument.</param>
+        /// <param name="arg1">The second argument.</param>
+        /// <param name="arg2">The third argument.</param>
+        /// <param name="arg3">The forth argument.</param>
+        /// <returns>
+        ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
+        ///     representation.
+        /// </returns>
+        public static string FormatAny(this string format, in FormattingArgument arg0, in FormattingArgument arg1, in FormattingArgument arg2, in FormattingArgument arg3)
+        {
+            return FormattingEx.Format(format, null, GetArgumentSpan(4, arg0, arg1, arg2, arg3), true);
         }
 
         /// <summary>
@@ -312,11 +451,9 @@ namespace StringFormatEx
         ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
         ///     representation.
         /// </returns>
-        public static string FormatAny(this string format, IFormatProvider? provider, FormattingArgument arg0)
+        public static string FormatAny(this string format, IFormatProvider? provider, in FormattingArgument arg0)
         {
-            var args = s_arguments.Value!;
-            args[0] = arg0;
-            return FormattingEx.Format(format, provider, args.AsSpan(0, 1), true);
+            return FormattingEx.Format(format, provider, GetArgumentSpan(1, arg0), true);
         }
 
         /// <summary>
@@ -330,21 +467,44 @@ namespace StringFormatEx
         ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
         ///     representation.
         /// </returns>
-        public static string FormatAny(this string format, IFormatProvider? provider, FormattingArgument arg0, FormattingArgument arg1)
+        public static string FormatAny(this string format, IFormatProvider? provider, in FormattingArgument arg0, in FormattingArgument arg1)
         {
-            var args = s_arguments.Value!;
-            if (FormattingArgumentSymbolComparer.Default.Compare(arg0, arg1) > 0)
-            {
-                args[0] = arg1;
-                args[1] = arg0;
-            }
-            else
-            {
-                args[0] = arg0;
-                args[1] = arg1;
-            }
+            return FormattingEx.Format(format, provider, GetArgumentSpan(2, arg0, arg1), true);
+        }
 
-            return FormattingEx.Format(format, provider, args, true);
+        /// <summary>
+        ///     Replaces the format symbols in a string with the replacement objects.
+        /// </summary>
+        /// <param name="format">A composite format <see langword="string" />.</param>
+        /// <param name="provider">A object that supplies culture-specific formatting information.</param>
+        /// <param name="arg0">The first argument.</param>
+        /// <param name="arg1">The second argument.</param>
+        /// <param name="arg2">The third argument.</param>
+        /// <returns>
+        ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
+        ///     representation.
+        /// </returns>
+        public static string FormatAny(this string format, IFormatProvider? provider, in FormattingArgument arg0, in FormattingArgument arg1, in FormattingArgument arg2)
+        {
+            return FormattingEx.Format(format, provider, GetArgumentSpan(2, arg0, arg1, arg2), true);
+        }
+
+        /// <summary>
+        ///     Replaces the format symbols in a string with the replacement objects.
+        /// </summary>
+        /// <param name="format">A composite format <see langword="string" />.</param>
+        /// <param name="provider">A object that supplies culture-specific formatting information.</param>
+        /// <param name="arg0">The first argument.</param>
+        /// <param name="arg1">The second argument.</param>
+        /// <param name="arg2">The third argument.</param>
+        /// <param name="arg3">The forth argument.</param>
+        /// <returns>
+        ///     A copy of <paramref name="format" /> in which the format symbols have been replaced by their respective string
+        ///     representation.
+        /// </returns>
+        public static string FormatAny(this string format, IFormatProvider? provider, in FormattingArgument arg0, in FormattingArgument arg1, in FormattingArgument arg2, in FormattingArgument arg3)
+        {
+            return FormattingEx.Format(format, provider, GetArgumentSpan(2, arg0, arg1, arg2, arg3), true);
         }
         
         /// <summary>
@@ -356,7 +516,9 @@ namespace StringFormatEx
         /// <returns>A string that consists of the members of <paramref name="values"/> delimited by the <paramref name="separator"/> string. If <paramref name="values"/> has no members, the method returns <see cref="String.Empty"/>.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
         /// <exception cref="OutOfMemoryException">The length of the resulting string overflows the maximum allowed length (<see cref="Int32.MaxValue"/>).</exception>
+#if NETSTANDARD2_1
         [return: NotNullIfNotNull("values")]
+#endif
         public static string? Join<T>(this string? separator,  IEnumerable<T>? values)
         {
             return values == null ? null : String.Join(separator, values);
@@ -371,10 +533,16 @@ namespace StringFormatEx
         /// <returns>A string that consists of the members of <paramref name="values"/> delimited by the <paramref name="separator"/> string. If <paramref name="values"/> has no members, the method returns <see cref="String.Empty"/>.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
         /// <exception cref="OutOfMemoryException">The length of the resulting string overflows the maximum allowed length (<see cref="Int32.MaxValue"/>).</exception>
+#if NETSTANDARD2_1
         [return: NotNullIfNotNull("values")]
+#endif
         public static string? Join<T>(this char separator, IEnumerable<T>? values)
         {
+#if NETSTANDARD2_1
             return values == null ? null : String.Join(separator, values);
+#else
+            return values == null ? null : String.Join(separator.ToString(), values);
+#endif
         }
 
         /// <summary>
@@ -398,10 +566,12 @@ namespace StringFormatEx
             {
                 int replaceIndex = replace.IndexOf(buffer[i]);
                 if (replaceIndex >= 0)
+                {
                     buffer[i] = with[replaceIndex];
+                }
             }
 
-            return new string(buffer);
+            return buffer.ToString();
         }
 
         /// <summary>
@@ -411,7 +581,7 @@ namespace StringFormatEx
         /// <returns>The escaped representation of the string.</returns>
         public static string Escape(this string unescaped)
         {
-            return Escape(unescaped, "\\", ReadOnlySpan<char>.Empty, CEscapeTable, 1);
+            return Escape(unescaped, "\\".AsSpan(), ReadOnlySpan<char>.Empty, CEscapeTable, 1);
         }
         
         /// <summary>
@@ -421,7 +591,7 @@ namespace StringFormatEx
         /// <returns>The escaped representation of the string.</returns>
         public static string EscapeQuotes(this string unescaped)
         {
-            return Escape(unescaped, "\\", ReadOnlySpan<char>.Empty, CEscapeTable, 2);
+            return Escape(unescaped, "\\".AsSpan(), ReadOnlySpan<char>.Empty, CEscapeTable, 2);
         }
 
         /// <summary>
@@ -444,7 +614,7 @@ namespace StringFormatEx
         /// <param name="str"></param>
         public static string Quote(this string str)
         {
-            ValueStringBuilder sb = new(stackalloc char[str.Length + 2]);
+            ValueStringBuilder sb = new(stackalloc char[Math.Min(4096, str.Length + 2)]);
             sb.Append('\"');
             sb.Append(str.AsSpan().Trim('\"'));
             sb.Append('\"');
@@ -457,7 +627,7 @@ namespace StringFormatEx
         /// <param name="str"></param>
         public static string Symbolize(this string str)
         {
-            ValueStringBuilder sb = new(stackalloc char[str.Length + 2]);
+            ValueStringBuilder sb = new(stackalloc char[Math.Min(4096, str.Length + 2)]);
             sb.Append('{');
             sb.Append(str.AsSpan().TrimStart('{').TrimEnd('}'));
             sb.Append('}');
