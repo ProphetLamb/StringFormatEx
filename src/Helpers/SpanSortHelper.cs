@@ -5,8 +5,8 @@ namespace StringFormatEx.Helpers
 {
     internal static class SpanSortHelper
     {
-        public static ref readonly Span<TItem> InsertionSort<TItem, TComparer>(in this Span<TItem> span, in TComparer comparer)
-            where TComparer : IComparer<TItem> // allow for comparer struct without a boxing allocation or defensive copy
+        public static void InsertionSort<TItem, TComparer>(in this Span<TItem> span, in TComparer comparer)
+            where TComparer : IComparer<TItem> // strong generic allows for comparer struct without a boxing allocation or defensive copy
         {
             for (int i = 1; i < span.Length; i++)
             {
@@ -18,8 +18,6 @@ namespace StringFormatEx.Helpers
                 }
                 span[j + 1] = p;
             }
-            
-            return ref span;
         }
     }
 }

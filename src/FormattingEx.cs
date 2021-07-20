@@ -5,6 +5,8 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 #endif
 
+using StringFormatEx.Helpers;
+
 namespace StringFormatEx
 {
     internal static class FormattingEx
@@ -14,16 +16,15 @@ namespace StringFormatEx
         /// </summary>
         /// <param name="format">The string format.</param>
         /// <param name="provider">The <see cref="ICustomFormatter"/> provider.</param>
+        /// <param name="options">The formatting options</param>
         /// <param name="arguments">The arguments ordered by <see cref="FormattingArgumentSymbolComparer"/>.</param>
-        /// <param name="doNotThrowOnUnrecognizedSymbol">Whether to throw if a symbol is not found in the <paramref name="arguments"/> or not.</param>
-        /// <param name="requireDollarForValidHole">Whether the formatting string uses the dollar sign prefix to indicate a hole or not.</param>
         /// <returns>The string <paramref name="format"/> where the holes are replaced by the <paramref name="arguments"/>.</returns>
-        /// <remarks>
-        ///     Curly brackets are only unescaped, if <c>!</c><paramref name="requireDollarForValidHole"/><c> &amp;&amp; !</c><paramref name="doNotThrowOnUnrecognizedSymbol"/>
-        /// </remarks>
-        public static string Format(string format, IFormatProvider? provider, in ReadOnlySpan<FormattingArgument> arguments, bool doNotThrowOnUnrecognizedSymbol = false, bool requireDollarForValidHole = false)
+        public static string Format(in ReadOnlySpan<char> format, IFormatProvider? provider, StringFormattingOptions options, in ReadOnlySpan<FormattingArgument> arguments)
         {
-            return Format(format, new FormattingArgumentCollection<object>(arguments, provider), doNotThrowOnUnrecognizedSymbol, requireDollarForValidHole ? 1 : 0);
+            return Format(format,
+                new FormattingArgumentCollection<object>(arguments, provider),
+                (options & StringFormattingOptions.DoNotThrowOnUnrecognisedSymbol) != 0,
+                (options & StringFormattingOptions.DollarLiteralHoleMode) != 0 ? 1 : 0);
         }
 
         /// <summary>
@@ -32,15 +33,14 @@ namespace StringFormatEx
         /// <param name="format">The string format.</param>
         /// <param name="provider">The <see cref="ICustomFormatter"/> provider.</param>
         /// <param name="arguments">The arguments dictionary.</param>
-        /// <param name="doNotThrowOnUnrecognizedSymbol">Whether to throw if a symbol is not found in the <paramref name="arguments"/> or not.</param>
-        /// <param name="requireDollarForValidHole">Whether the formatting string uses the dollar sign prefix to indicate a hole or not.</param>
+        /// <param name="options">The formatting options</param>
         /// <returns>The string <paramref name="format"/> where the holes are replaced by the <paramref name="arguments"/>.</returns>
-        /// <remarks>
-        ///     Curly brackets are only unescaped, if <c>!</c><paramref name="requireDollarForValidHole"/><c> &amp;&amp; !</c><paramref name="doNotThrowOnUnrecognizedSymbol"/>
-        /// </remarks>
-        public static string Format<TValue>(string format, IFormatProvider? provider, IReadOnlyDictionary<string, TValue> arguments, bool doNotThrowOnUnrecognizedSymbol = false, bool requireDollarForValidHole = false)
+        public static string Format<TValue>(in ReadOnlySpan<char> format, IFormatProvider? provider, StringFormattingOptions options, IReadOnlyDictionary<string, TValue> arguments)
         {
-            return Format(format, new FormattingArgumentCollection<TValue>(arguments, provider), doNotThrowOnUnrecognizedSymbol, requireDollarForValidHole ? 1 : 0);
+            return Format(format,
+                new FormattingArgumentCollection<TValue>(arguments, provider),
+                (options & StringFormattingOptions.DoNotThrowOnUnrecognisedSymbol) != 0,
+                (options & StringFormattingOptions.DollarLiteralHoleMode) != 0 ? 1 : 0);
         }
 
         /// <summary></summary>
@@ -53,7 +53,7 @@ namespace StringFormatEx
         /// <remarks>
         ///     Curly brackets are only unescaped, if <paramref name="requireDollarForValidHole"/><c>==0 &amp;&amp; !</c><paramref name="doNotThrowOnUnrecognizedSymbol"/>
         /// </remarks>
-        private static string Format<T>(string format, in FormattingArgumentCollection<T> arguments, bool doNotThrowOnUnrecognizedSymbol, int requireDollarForValidHole)
+        private static string Format<T>(in ReadOnlySpan<char> format, in FormattingArgumentCollection<T> arguments, bool doNotThrowOnUnrecognizedSymbol, int requireDollarForValidHole)
         {
             Debug.Assert((requireDollarForValidHole & 1) == requireDollarForValidHole, "requireDollarForValidHole must be either zero or one.");
 
@@ -121,7 +121,7 @@ namespace StringFormatEx
                     // Finalize the output string.
                     if (requireDollarForValidHole == 1 | doNotThrowOnUnrecognizedSymbol)
                     {
-                        output.Append(format.AsSpan(holeEnd, holeStart - holeEnd - (1 << requireDollarForValidHole)));
+                        output.Append(format.Slice(holeEnd, holeStart - holeEnd - (1 << requireDollarForValidHole)));
                     }
                     break;
                 }
@@ -140,10 +140,10 @@ namespace StringFormatEx
                     // This is faster, but does not unescape curly-brackets.
                     // Add a slice of format from the last hole end until the hole start.
                     // If we require a dollar sign, we must subtract two, otherwise one character to skip the hole.
-                    output.Append(format.AsSpan(holeEnd, holeStart - holeEnd - (1 << requireDollarForValidHole)));
+                    output.Append(format.Slice(holeEnd, holeStart - holeEnd - (1 << requireDollarForValidHole)));
                 }
 
-                string syName = format.Substring(holeStart, index - holeStart);
+                string syName = format.Slice(holeStart, index - holeStart).ToString();
                 if (arguments.TryGetValue(syName, out string? value))
                 {
                     output.Append(value);

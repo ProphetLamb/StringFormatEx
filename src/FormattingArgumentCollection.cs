@@ -42,7 +42,7 @@ namespace StringFormatEx
             }
             else
             {
-                if (_dictionary.TryGetValue(key, out var value))
+                if (_dictionary.TryGetValue(key.ToString(), out var value))
                 {
                     replacement = TryFormat(in value);
                     return true;
@@ -54,13 +54,13 @@ namespace StringFormatEx
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public string? TryFormat(object? value)
+        private string? TryFormat(object? value)
         {
             return _formatter == null ? value?.ToString() : _formatter.Format("{0}", value, _provider);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public string? TryFormat(in T? value)
+        private string? TryFormat(in T? value)
         {
             return _formatter == null ? value?.ToString() : _formatter.Format("{0}", value, _provider);
         }

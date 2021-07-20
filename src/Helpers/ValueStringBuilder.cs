@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace StringFormatEx
+namespace StringFormatEx.Helpers
 {
     // Source: https://source.dot.net/System.Private.CoreLib/ValueStringBuilder.cs.html
     [DebuggerDisplay("{GetDebuggerDisplay(),nq}")]

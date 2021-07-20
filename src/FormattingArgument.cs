@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace StringFormatEx
 {
@@ -21,9 +22,7 @@ namespace StringFormatEx
             value = Value;
         }
 
-        public static implicit operator FormattingArgument(ValueTuple<string, object?> tuple) => new(tuple.Item1, tuple.Item2);
-
-        public static implicit operator FormattingArgument(Tuple<string, object?> tuple) => new(tuple.Item1, tuple.Item2);
+        public static implicit operator FormattingArgument(in ValueTuple<string, object?> tuple) => new(tuple.Item1, tuple.Item2);
     }
 
     public readonly struct FormattingArgumentSymbolComparer : IComparer<FormattingArgument>
