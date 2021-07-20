@@ -573,6 +573,40 @@ namespace StringFormatEx
 
             return buffer.ToString();
         }
+        
+        /// <summary>
+        /// Formats the string format using the given arguments.
+        /// </summary>
+        /// <param name="format">The string format.</param>
+        /// <param name="provider">The <see cref="ICustomFormatter"/> provider.</param>
+        /// <param name="arguments">The arguments. Will be sorted using the <see cref="FormattingArgumentSymbolComparer"/>.</param>
+        /// <param name="doNotThrowOnUnrecognizedSymbol">Whether to throw if a symbol is not found in the <paramref name="arguments"/> or not.</param>
+        /// <param name="requireDollarForValidHole">Whether the formatting string uses the dollar sign prefix to indicate a hole or not.</param>
+        /// <returns>The string <paramref name="format"/> where the holes are replaced by the <paramref name="arguments"/>.</returns>
+        /// <remarks>
+        ///     Curly brackets are only unescaped, if <c>!</c><paramref name="requireDollarForValidHole"/><c> &amp;&amp; !</c><paramref name="doNotThrowOnUnrecognizedSymbol"/>
+        /// </remarks>
+        public static string FormatEx(this string format, IFormatProvider? provider, in Span<FormattingArgument> arguments, bool doNotThrowOnUnrecognizedSymbol = false, bool requireDollarForValidHole = false)
+        {
+            return FormattingEx.Format(format, provider, arguments.InsertionSort(FormattingArgumentSymbolComparer.Default), doNotThrowOnUnrecognizedSymbol, requireDollarForValidHole);
+        }
+
+        /// <summary>
+        /// Formats the string format using the given arguments.
+        /// </summary>
+        /// <param name="format">The string format.</param>
+        /// <param name="provider">The <see cref="ICustomFormatter"/> provider.</param>
+        /// <param name="arguments">The arguments dictionary.</param>
+        /// <param name="doNotThrowOnUnrecognizedSymbol">Whether to throw if a symbol is not found in the <paramref name="arguments"/> or not.</param>
+        /// <param name="requireDollarForValidHole">Whether the formatting string uses the dollar sign prefix to indicate a hole or not.</param>
+        /// <returns>The string <paramref name="format"/> where the holes are replaced by the <paramref name="arguments"/>.</returns>
+        /// <remarks>
+        ///     Curly brackets are only unescaped, if <c>!</c><paramref name="requireDollarForValidHole"/><c> &amp;&amp; !</c><paramref name="doNotThrowOnUnrecognizedSymbol"/>
+        /// </remarks>
+        public static string FormatEx<TValue>(this string format, IFormatProvider? provider, IReadOnlyDictionary<string, TValue> arguments, bool doNotThrowOnUnrecognizedSymbol = false, bool requireDollarForValidHole = false)
+        {
+            return FormattingEx.Format(format, provider, arguments, doNotThrowOnUnrecognizedSymbol, requireDollarForValidHole);
+        }
 
         /// <summary>
         /// Escapes the following characters with a back-slash (<c>'\\'</c>): <c>'\0', '\b', '\t', '\n', '\v', '\\', '\r'. '\"'</c> 

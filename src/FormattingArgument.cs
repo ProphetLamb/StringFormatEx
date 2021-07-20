@@ -23,7 +23,7 @@ namespace StringFormatEx
         }
     }
 
-    public sealed class FormattingArgumentSymbolComparer : IComparer<FormattingArgument>
+    public readonly struct FormattingArgumentSymbolComparer : IComparer<FormattingArgument>
     {
         public static FormattingArgumentSymbolComparer Default { get; } = new();
 

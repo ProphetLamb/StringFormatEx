@@ -7,7 +7,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace StringFormatEx
 {
-    public static class FormattingEx
+    internal static class FormattingEx
     {
         /// <summary>
         /// Formats the string format using the given arguments.
@@ -18,9 +18,12 @@ namespace StringFormatEx
         /// <param name="doNotThrowOnUnrecognizedSymbol">Whether to throw if a symbol is not found in the <paramref name="arguments"/> or not.</param>
         /// <param name="requireDollarForValidHole">Whether the formatting string uses the dollar sign prefix to indicate a hole or not.</param>
         /// <returns>The string <paramref name="format"/> where the holes are replaced by the <paramref name="arguments"/>.</returns>
+        /// <remarks>
+        ///     Curly brackets are only unescaped, if <c>!</c><paramref name="requireDollarForValidHole"/><c> &amp;&amp; !</c><paramref name="doNotThrowOnUnrecognizedSymbol"/>
+        /// </remarks>
         public static string Format(string format, IFormatProvider? provider, in ReadOnlySpan<FormattingArgument> arguments, bool doNotThrowOnUnrecognizedSymbol = false, bool requireDollarForValidHole = false)
         {
-            return Format(format, new FormattingArgumentCollection<string>(arguments, provider), doNotThrowOnUnrecognizedSymbol, requireDollarForValidHole ? 1 : 0);
+            return Format(format, new FormattingArgumentCollection<object>(arguments, provider), doNotThrowOnUnrecognizedSymbol, requireDollarForValidHole ? 1 : 0);
         }
 
         /// <summary>
@@ -32,6 +35,9 @@ namespace StringFormatEx
         /// <param name="doNotThrowOnUnrecognizedSymbol">Whether to throw if a symbol is not found in the <paramref name="arguments"/> or not.</param>
         /// <param name="requireDollarForValidHole">Whether the formatting string uses the dollar sign prefix to indicate a hole or not.</param>
         /// <returns>The string <paramref name="format"/> where the holes are replaced by the <paramref name="arguments"/>.</returns>
+        /// <remarks>
+        ///     Curly brackets are only unescaped, if <c>!</c><paramref name="requireDollarForValidHole"/><c> &amp;&amp; !</c><paramref name="doNotThrowOnUnrecognizedSymbol"/>
+        /// </remarks>
         public static string Format<TValue>(string format, IFormatProvider? provider, IReadOnlyDictionary<string, TValue> arguments, bool doNotThrowOnUnrecognizedSymbol = false, bool requireDollarForValidHole = false)
         {
             return Format(format, new FormattingArgumentCollection<TValue>(arguments, provider), doNotThrowOnUnrecognizedSymbol, requireDollarForValidHole ? 1 : 0);
@@ -40,14 +46,14 @@ namespace StringFormatEx
         /// <summary></summary>
         /// <param name="format">Formatting string.</param>
         /// <param name="arguments">Sorted array of formatting arguments.</param>
-        /// <param name="doesNotThrowOnMissingArgument">If <see langword="true"/> leaves arguments which are not replaced unchanged, otherwise; throws a <see cref="FormatException"/>.</param>
+        /// <param name="doNotThrowOnUnrecognizedSymbol">If <see langword="true"/> leaves arguments which are not replaced unchanged, otherwise; throws a <see cref="FormatException"/>.</param>
         /// <param name="requireDollarForValidHole">If <see langword="1"/> only recognises holes with a dollar-sign '$' prefix. e.g. ${name} is recognized, but ${{name}} and {name} is not, otherwise; behaves similar to <see cref="String.Format(string, object)"/>.</param>
         /// <returns></returns>
-        /// <exception cref="FormatException">Incomplete format or argument in format string for which no replacement is provided if <paramref name="doesNotThrowOnMissingArgument"/> is <see langword="false"/>.</exception>
+        /// <exception cref="FormatException">Incomplete format or argument in format string for which no replacement is provided if <paramref name="doNotThrowOnUnrecognizedSymbol"/> is <see langword="false"/>.</exception>
         /// <remarks>
-        ///     Curly brackets are only unescaped, if <paramref name="requireDollarForValidHole"/><c>==0 &amp; !</c><paramref name="doesNotThrowOnMissingArgument"/>
+        ///     Curly brackets are only unescaped, if <paramref name="requireDollarForValidHole"/><c>==0 &amp;&amp; !</c><paramref name="doNotThrowOnUnrecognizedSymbol"/>
         /// </remarks>
-        private static string Format<T>(string format, in FormattingArgumentCollection<T> arguments, bool doesNotThrowOnMissingArgument, int requireDollarForValidHole)
+        private static string Format<T>(string format, in FormattingArgumentCollection<T> arguments, bool doNotThrowOnUnrecognizedSymbol, int requireDollarForValidHole)
         {
             Debug.Assert((requireDollarForValidHole & 1) == requireDollarForValidHole, "requireDollarForValidHole must be either zero or one.");
 
@@ -103,7 +109,7 @@ namespace StringFormatEx
                         enableHole = false;
                     }
                     
-                    if (holeStart != 0 && (requireDollarForValidHole == 0 & !doesNotThrowOnMissingArgument))
+                    if (holeStart != 0 && (requireDollarForValidHole == 0 & !doNotThrowOnUnrecognizedSymbol))
                     {
                         // This is slower, but unescapes curly-brackets
                         output.Append(current);
@@ -124,7 +130,7 @@ namespace StringFormatEx
                 // -> index - holeStart is equal to the length of the symbol.
                 Debug.Assert(holeStart - (1 << requireDollarForValidHole) >= holeEnd, "The hole-prefix ({ or ${) must be between the end of the previous hole and the start of the current hole.");
 
-                if (requireDollarForValidHole == 1 | doesNotThrowOnMissingArgument)
+                if (requireDollarForValidHole == 1 | doNotThrowOnUnrecognizedSymbol)
                 {
                     // This is faster, but does not unescape curly-brackets.
                     // Add a slice of format from the last hole end until the hole start.
@@ -137,7 +143,7 @@ namespace StringFormatEx
                 {
                     output.Append(value);
                 }
-                else if (doesNotThrowOnMissingArgument)
+                else if (doNotThrowOnUnrecognizedSymbol)
                 {
                     if (requireDollarForValidHole == 0)
                     {
