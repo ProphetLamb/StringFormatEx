@@ -87,7 +87,7 @@ namespace StringFormatEx
                             continue;
                         }
                     }
-                    else if (current == '}' & enableHole)
+                    else if (current == '}')
                     {
                         if (index < length && format[index] == '}')
                         {
@@ -118,6 +118,11 @@ namespace StringFormatEx
 
                 if (index == length)
                 {
+                    // Finalize the output string.
+                    if (requireDollarForValidHole == 1 | doNotThrowOnUnrecognizedSymbol)
+                    {
+                        output.Append(format.AsSpan(holeEnd, holeStart - holeEnd - (1 << requireDollarForValidHole)));
+                    }
                     break;
                 }
 
@@ -161,7 +166,6 @@ namespace StringFormatEx
                     ThrowFormatArgumentNotFound(syName);
                 }
 
-                // Cleanup
                 symbol.Length = 0;
                 holeStart = 0;
                 holeEnd = index + 1;
