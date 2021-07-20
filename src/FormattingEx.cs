@@ -1,130 +1,75 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 #if NETSTANDARD2_1
 using System.Diagnostics.CodeAnalysis;
 #endif
 
 namespace StringFormatEx
 {
-    internal static class FormattingEx
+    public static class FormattingEx
     {
-        /// <summary></summary>
-        /// <param name="format">Formatting string.</param>
-        /// <param name="provider">Format provider</param>
-        /// <param name="arguments">Sorted array of formatting arguments.</param>
-        /// <param name="doNotThrowOnMissingArgument">if <see langword="true"/> leaves arguments which are not replaced unchanged, otherwise; throws a <see cref="FormatException"/>.</param>
-        /// <returns></returns>
-        /// <exception cref="FormatException">Incomplete format or argument in format string for which no replacement is provided if <paramref name="doNotThrowOnMissingArgument"/> is <see langword="false"/>.</exception>
-        public static string Format(string format, IFormatProvider? provider, ReadOnlySpan<FormattingArgument> arguments, bool doNotThrowOnMissingArgument)
+        /// <summary>
+        /// Formats the string format using the given arguments.
+        /// </summary>
+        /// <param name="format">The string format.</param>
+        /// <param name="provider">The <see cref="ICustomFormatter"/> provider.</param>
+        /// <param name="arguments">The arguments ordered by <see cref="FormattingArgumentSymbolComparer"/>.</param>
+        /// <param name="doNotThrowOnUnrecognizedSymbol">Whether to throw if a symbol is not found in the <paramref name="arguments"/> or not.</param>
+        /// <param name="requireDollarForValidHole">Whether the formatting string uses the dollar sign prefix to indicate a hole or not.</param>
+        /// <returns>The string <paramref name="format"/> where the holes are replaced by the <paramref name="arguments"/>.</returns>
+        public static string Format(string format, IFormatProvider? provider, in ReadOnlySpan<FormattingArgument> arguments, bool doNotThrowOnUnrecognizedSymbol = false, bool requireDollarForValidHole = false)
         {
-            ValueStringBuilder output = new(stackalloc char[Math.Min(4096, format.Length)]);
-            ValueStringBuilder symbol = new(stackalloc char[32]);
-            var index = 0;
-            int length = format.Length;
-            var inHole = false;
-            ICustomFormatter? formatter = (ICustomFormatter?)provider?.GetFormat(typeof(ICustomFormatter));
-            while (true)
-            {
-                // Find hole
-                while (index < length)
-                {
-                    char current = format[index];
-                    index++;
-                    if (current == '{')
-                    {
-                        if (index < length && format[index] == '{')
-                        {
-                            index++;
-                        }
-                        else
-                        {
-                            inHole = true;
-                            continue;
-                        }
-                    }
-                    else if (current == '}')
-                    {
-                        if (index < length && format[index] == '}')
-                        {
-                            index++;
-                        }
-                        else if (inHole)
-                        {
-                            index--;
-                            break;
-                        }
-                        else
-                        {
-                            ThrowFormatError();
-                        }
-                    }
-
-                    if (inHole)
-                        symbol.Append(current);
-                    else
-                        output.Append(current);
-                }
-
-                if (index == length)
-                    break;
-                if (!inHole)
-                    ThrowFormatError();
-
-                // Find named argument in arguments
-                string syName = symbol.ToString();
-                FormattingArgument dummy = new(syName, null);
-                
-                int argumentIndex = arguments.BinarySearch(dummy, FormattingArgumentSymbolComparer.Default);
-                if (argumentIndex >= 0)
-                {
-                    object? value = arguments[argumentIndex].Value;
-                    // Append formatted string to sb
-                    string? s = formatter == null ? value?.ToString() : formatter.Format("{0}", value, provider);
-                    output.Append(s);
-                }
-                else if (doNotThrowOnMissingArgument)
-                {
-                    output.Append('{');
-                    output.Append(syName);
-                    output.Append('}');
-                }
-                else
-                {
-                    ThrowFormatArgumentNotFound(syName);
-                }
-
-                // Cleanup
-                symbol.Length = 0;
-                inHole = false;
-                index++;
-            }
-
-            return output.ToString();
+            return Format(format, new FormattingArgumentCollection<string>(arguments, provider), doNotThrowOnUnrecognizedSymbol, requireDollarForValidHole ? 1 : 0);
         }
-        
+
+        /// <summary>
+        /// Formats the string format using the given arguments.
+        /// </summary>
+        /// <param name="format">The string format.</param>
+        /// <param name="provider">The <see cref="ICustomFormatter"/> provider.</param>
+        /// <param name="arguments">The arguments dictionary.</param>
+        /// <param name="doNotThrowOnUnrecognizedSymbol">Whether to throw if a symbol is not found in the <paramref name="arguments"/> or not.</param>
+        /// <param name="requireDollarForValidHole">Whether the formatting string uses the dollar sign prefix to indicate a hole or not.</param>
+        /// <returns>The string <paramref name="format"/> where the holes are replaced by the <paramref name="arguments"/>.</returns>
+        public static string Format<TValue>(string format, IFormatProvider? provider, IReadOnlyDictionary<string, TValue> arguments, bool doNotThrowOnUnrecognizedSymbol = false, bool requireDollarForValidHole = false)
+        {
+            return Format(format, new FormattingArgumentCollection<TValue>(arguments, provider), doNotThrowOnUnrecognizedSymbol, requireDollarForValidHole ? 1 : 0);
+        }
+
         /// <summary></summary>
         /// <param name="format">Formatting string.</param>
-        /// <param name="provider">Format provider</param>
         /// <param name="arguments">Sorted array of formatting arguments.</param>
-        /// <param name="doNotThrowOnMissingArgument">if <see langword="true"/> leaves arguments which are not replaced unchanged, otherwise; throws a <see cref="FormatException"/>.</param>
+        /// <param name="doesNotThrowOnMissingArgument">If <see langword="true"/> leaves arguments which are not replaced unchanged, otherwise; throws a <see cref="FormatException"/>.</param>
+        /// <param name="requireDollarForValidHole">If <see langword="1"/> only recognises holes with a dollar-sign '$' prefix. e.g. ${name} is recognized, but ${{name}} and {name} is not, otherwise; behaves similar to <see cref="String.Format(string, object)"/>.</param>
         /// <returns></returns>
-        /// <exception cref="FormatException">Incomplete format or argument in format string for which no replacement is provided if <paramref name="doNotThrowOnMissingArgument"/> is <see langword="false"/>.</exception>
-        public static string Format<T>(string format, IFormatProvider? provider, IReadOnlyDictionary<string, T> arguments, bool doNotThrowOnMissingArgument)
+        /// <exception cref="FormatException">Incomplete format or argument in format string for which no replacement is provided if <paramref name="doesNotThrowOnMissingArgument"/> is <see langword="false"/>.</exception>
+        /// <remarks>
+        ///     Curly brackets are only unescaped, if <paramref name="requireDollarForValidHole"/><c>==0 &amp; !</c><paramref name="doesNotThrowOnMissingArgument"/>
+        /// </remarks>
+        private static string Format<T>(string format, in FormattingArgumentCollection<T> arguments, bool doesNotThrowOnMissingArgument, int requireDollarForValidHole)
         {
+            Debug.Assert((requireDollarForValidHole & 1) == requireDollarForValidHole, "requireDollarForValidHole must be either zero or one.");
+
             ValueStringBuilder output = new(stackalloc char[Math.Min(4096, format.Length)]);
             ValueStringBuilder symbol = new(stackalloc char[32]);
-            var index = 0;
+            int index = 0;
             int length = format.Length;
-            var inHole = false;
-            ICustomFormatter? formatter = (ICustomFormatter?)provider?.GetFormat(typeof(ICustomFormatter));
+            int holeStart = 0; // The index of the first char of the symbol inside the hole.
+            int holeEnd = 0; // The index of the first character after the end of the last hole.
+            bool enableHole = requireDollarForValidHole == 0; // Controls whether we recognize a hole as such or not. Always true when requireDollarForValidHole is zero.
             while (true)
             {
-                // Find hole
                 while (index < length)
                 {
                     char current = format[index];
                     index++;
-                    if (current == '{')
+                    // Do not use short-circuit operators for branching here: superscalar optimization
+                    if (current == '$' & requireDollarForValidHole == 1)
+                    {
+                        enableHole = true;
+                    }
+                    else if (current == '{' & enableHole)
                     {
                         if (index < length && format[index] == '{')
                         {
@@ -132,17 +77,17 @@ namespace StringFormatEx
                         }
                         else
                         {
-                            inHole = true;
+                            holeStart = index;
                             continue;
                         }
                     }
-                    else if (current == '}')
+                    else if (current == '}' & enableHole)
                     {
                         if (index < length && format[index] == '}')
                         {
                             index++;
                         }
-                        else if (inHole)
+                        else if (holeStart != 0)
                         {
                             index--;
                             break;
@@ -153,12 +98,14 @@ namespace StringFormatEx
                         }
                     }
 
-                    if (inHole)
+                    if (current != '$' & requireDollarForValidHole == 1)
                     {
-                        symbol.Append(current);
+                        enableHole = false;
                     }
-                    else
+                    
+                    if (holeStart != 0 && (requireDollarForValidHole == 0 & !doesNotThrowOnMissingArgument))
                     {
+                        // This is slower, but unescapes curly-brackets
                         output.Append(current);
                     }
                 }
@@ -167,22 +114,39 @@ namespace StringFormatEx
                 {
                     break;
                 }
-                if (!inHole)
+
+                if (holeStart == 0)
                 {
                     ThrowFormatError();
                 }
+                // holeStart points to the first char of the symbol, the first char after the {
+                // index points to the } bracket enclosing the symbol.
+                // -> index - holeStart is equal to the length of the symbol.
+                Debug.Assert(holeStart - (1 << requireDollarForValidHole) >= holeEnd, "The hole-prefix ({ or ${) must be between the end of the previous hole and the start of the current hole.");
 
-                // Find named argument in arguments
-                string syName = symbol.ToString();
-                if (arguments.TryGetValue(syName, out T? argument))
+                if (requireDollarForValidHole == 1 | doesNotThrowOnMissingArgument)
                 {
-                    // Append formatted string to sb
-                    string? s = formatter == null ? argument?.ToString() : formatter.Format("{0}", argument, provider);
-                    output.Append(s);
+                    // This is faster, but does not unescape curly-brackets.
+                    // Add a slice of format from the last hole end until the hole start.
+                    // If we require a dollar sign, we must subtract two, otherwise one character to skip the hole.
+                    output.Append(format.AsSpan(holeEnd, holeStart - holeEnd - (1 << requireDollarForValidHole)));
                 }
-                else if (doNotThrowOnMissingArgument)
+
+                string syName = format.Substring(holeStart, index - holeStart);
+                if (arguments.TryGetValue(syName, out string? value))
                 {
-                    output.Append('{');
+                    output.Append(value);
+                }
+                else if (doesNotThrowOnMissingArgument)
+                {
+                    if (requireDollarForValidHole == 0)
+                    {
+                        output.Append('{');
+                    }
+                    else
+                    {
+                        output.Append("${");
+                    }
                     output.Append(syName);
                     output.Append('}');
                 }
@@ -193,8 +157,10 @@ namespace StringFormatEx
 
                 // Cleanup
                 symbol.Length = 0;
-                inHole = false;
-                index++;
+                holeStart = 0;
+                holeEnd = index + 1;
+                index = holeEnd;
+                enableHole = requireDollarForValidHole == 0;
             }
 
             return output.ToString();
@@ -214,35 +180,6 @@ namespace StringFormatEx
         private static void ThrowFormatArgumentNotFound(string argumentName)
         {
             throw new FormatException($"Invalid string format the no argument with the symbol-name \"{argumentName}\" in the argument array.");
-        }
-    }
-
-    public readonly struct FormattingArgument
-    {
-        public FormattingArgument(string symbol, object? value)
-        {
-            Symbol = symbol;
-            Value = value;
-        }
-
-        public readonly string Symbol;
-
-        public readonly object? Value;
-
-        public void Deconstruct(out string symbol, out object? value)
-        {
-            symbol = Symbol;
-            value = Value;
-        }
-    }
-
-    public sealed class FormattingArgumentSymbolComparer : IComparer<FormattingArgument>
-    {
-        public static FormattingArgumentSymbolComparer Default { get; } = new();
-
-        public int Compare(FormattingArgument x, FormattingArgument y)
-        {
-            return String.Compare(x.Symbol, y.Symbol, StringComparison.Ordinal);
         }
     }
 }
