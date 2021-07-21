@@ -64,6 +64,7 @@ namespace StringFormatEx
             int holeStart = 0; // The index of the first char of the symbol inside the hole.
             int holeEnd = 0; // The index of the first character after the end of the last hole.
             bool enableHole = requireDollarForValidHole == 0; // Controls whether we recognize a hole as such or not. Always true when requireDollarForValidHole is zero.
+            bool atomicAppend = requireDollarForValidHole == 0 & !doNotThrowOnUnrecognizedSymbol; // Indicates whether we append each char or spans between holes. This controls whether we escape brackets or not,
             while (true)
             {
                 while (index < length)
@@ -109,7 +110,7 @@ namespace StringFormatEx
                         enableHole = false;
                     }
                     
-                    if (holeStart != 0 && (requireDollarForValidHole == 0 & !doNotThrowOnUnrecognizedSymbol))
+                    if (holeStart != 0 & atomicAppend)
                     {
                         // This is slower, but unescapes curly-brackets
                         output.Append(current);
@@ -119,9 +120,9 @@ namespace StringFormatEx
                 if (index == length)
                 {
                     // Finalize the output string.
-                    if (requireDollarForValidHole == 1 | doNotThrowOnUnrecognizedSymbol)
+                    if (!atomicAppend)
                     {
-                        output.Append(format.Slice(holeEnd, holeStart - holeEnd - (1 << requireDollarForValidHole)));
+                        output.Append(format.Slice(holeEnd));
                     }
                     break;
                 }
@@ -135,7 +136,7 @@ namespace StringFormatEx
                 // -> index - holeStart is equal to the length of the symbol.
                 Debug.Assert(holeStart - (1 << requireDollarForValidHole) >= holeEnd, "The hole-prefix ({ or ${) must be between the end of the previous hole and the start of the current hole.");
 
-                if (requireDollarForValidHole == 1 | doNotThrowOnUnrecognizedSymbol)
+                if (!atomicAppend)
                 {
                     // This is faster, but does not unescape curly-brackets.
                     // Add a slice of format from the last hole end until the hole start.
